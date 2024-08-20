@@ -51,19 +51,50 @@ class UserController extends Controller
     {   
         $email = $request->input('email');
         $otp = rand(1000,9999);
-        return response()->json(['status' => 'success', 'message' => 'OTP sent successfully', 'otp' => $otp], 200);
+        
         $count = User::where('email','=', $email)->count();
 
-        if ($count == 1) {
-            //send otp to email
-            Mail::to($email)->send(new OTPMail($otp));
+        switch ($count) {
+            case 1:
+                Mail::to($email)->send(new OTPMail($otp));
 
-            //update otp in database
-            User::where('email', $email)->update(['otp' => $otp]);
-            return response()->json(['status' => 'success', 'message' => 'OTP sent successfully', 'otp' => $otp], 200);
+                //update otp in database
+                User::where('email', $email)->update(['otp' => $otp]);
+                return response()->json(['status' => 'success', 'message' => 'OTP sent successfully'], 200);
+            default:
+                return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
         }
-        else {
-            return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
+    }
+
+    function VerifyOTP(Request $request)
+    {
+        $email = $request->input('email');
+        $otp = $request->input('otp');
+        $count = User::where('email','=', $email)->where('otp','=', $otp)->count();
+
+        switch ($count==1) {
+            case 1:
+                //update otp in database
+                User::where('email', $email)->update(['otp' => null]);
+
+                //password reset token
+                $token = JWTToken::PassResetToken($request->input('email'));
+                return response()->json(['status' => 'success', 'message' => 'OTP verified successfully', 'token' => $token], 200);
+
+            
+
+            default:
+                return response()->json(['status' => 'error', 'message' => 'Invalid OTP'], 404);
         }
+    }
+
+    function ResetPassword(Request $request)
+    {
+        $email = $request->header('token');
+        $password = $request->input('password');
+
+        User::where('email','=', $email)->update(['password','=', $password]);
+
+        return response()->json(['status' => 'success', 'message' => 'Password reset successfully'], 200);
     }
 }

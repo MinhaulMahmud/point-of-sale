@@ -20,6 +20,18 @@ class JWTToken
         return JWT::encode($payload, $key, 'HS256');
     }
 
+    public static function PassResetToken($userEmail): string
+    {
+        $key = env('JWT_KEY');
+        $payload = [
+            'iss' => 'Laravel-token',
+            'iat' => time(),
+            'exp' => time() + 60*20,
+            'email' => $userEmail,
+        ];
+        return JWT::encode($payload, $key, 'HS256');
+    }
+
     public static function VerifyToken($token):String
     {
         //try catch exception to avoid error
