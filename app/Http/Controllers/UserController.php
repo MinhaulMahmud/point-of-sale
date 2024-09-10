@@ -31,20 +31,21 @@ class UserController extends Controller
         }
         
     }
-
     public function UserLogin(Request $request)
     {
         $count =User::where('email', $request->input('email'))->
-        where('password', $request->input('password'))->count();
+        where('password', $request->input('password'))->select('id')->first();
 
-        if($count == 1) {
+        if($count !== null) {
             //user login -> JWT token Issue
-            $token = JWTToken::CreateToken($request->input('email'));
-            return response()->json(['status' => 'success', 'message' => 'User logged in successfully', 'token' => $token], 200);
+            $token = JWTToken::CreateToken($request->input('email'),$count->id);
+            return response()->json([
+                'status' => 'success',
+                'message' => 'User logged in successfully'], 200)->cookie('token', $token, 1440);
 
         }
         else{
-            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 200);
+            return response()->json(['status' => 'error', 'message' => 'Unauthorized'], 404);
         }
     }
     function SendOTP(Request $request)
@@ -65,7 +66,6 @@ class UserController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'User not found'], 404);
         }
     }
-
     function VerifyOTP(Request $request)
     {
         $email = $request->input('email');
@@ -75,7 +75,7 @@ class UserController extends Controller
         switch ($count==1) {
             case 1:
                 //update otp in database
-                User::where('email', $email)->update(['otp' => null]);
+                User::where('email', $email)->update(['otp' => 0]);
 
                 //password reset token
                 $token = JWTToken::PassResetToken($request->input('email'));
@@ -87,14 +87,62 @@ class UserController extends Controller
                 return response()->json(['status' => 'error', 'message' => 'Invalid OTP'], 404);
         }
     }
+/*// public function ResetPassword(Request $request)
+    // {
+    //     $email = $request->header('token');
+    //     $password = $request->input('password');
 
-    function ResetPassword(Request $request)
+    //     User::where('email','=', $email)->update(['password' => $password]);
+
+    //     return response()->json(['status' => 'success', 'message' => 'Password reset successfully'], 200);
+    // }*/
+    public function ResetPassword(Request $request)
     {
-        $email = $request->header('token');
+        // Retrieve the email from the 'email' header, which was set in the middleware
+        $email = $request->header('email');
+
+        // Retrieve the new password from the request input
         $password = $request->input('password');
 
-        User::where('email','=', $email)->update(['password','=', $password]);
+        // Update the user's password in the database without hashing
+        $updated = User::where('email', '=', $email)->update(['password' => $password]);
 
-        return response()->json(['status' => 'success', 'message' => 'Password reset successfully'], 200);
+        // Check if the password update was successful
+        if ($updated) 
+        {
+            return response()->json(['status' => 'success', 'message' => 'Password reset successfully'], 200);
+        } 
+        else 
+        {
+            return response()->json(['status' => 'failed', 'message' => 'Password reset failed'], 400);
+        }
+    }
+
+
+    public function LoginPage(){
+
+        return view('pages.auth.login');
+    }
+
+    public function RegisterPage(){
+        return view('pages.auth.register');
+    }
+
+    public function PassresetPage(){
+        return view('pages.auth.reset-pass');
+    }
+
+    public function ThrowOTP(){
+        return view('pages.auth.send-otp');}
+
+    public function ConfirmOTP(){
+        return view('pages.auth.verif-otp');}
+
+    public function Dashboard(){
+        return view('pages.dashboard.dashboard');
+    }
+
+    public function ProfileView(){
+        return view('pages.dashboard.profile');
     }
 }
